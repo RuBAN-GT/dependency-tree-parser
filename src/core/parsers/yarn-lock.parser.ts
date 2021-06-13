@@ -6,6 +6,7 @@ import { Report } from '../types/report';
 import { Parser } from '../parser';
 import { nameFormatter } from '../utils/name-formetter';
 import { ParserParams } from '../types/parser-params';
+import { nodeFactory } from '../utils/node-factory';
 
 type YarnLockTree = Record<string, { dependencies: string[]; peerDependencies: string[] }>;
 
@@ -28,7 +29,7 @@ export class YarnLockParser implements Parser {
   }
 
   protected getTree(tree: YarnLockTree, filter: string[] = [], deps = 1, params: ParserParams): Report {
-    const { mask, maxDepth = 5 } = params || {};
+    const { combineDependencies = true, mask, maxDepth = 5 } = params || {};
 
     if (filter.length === 0 || deps >= maxDepth + 1) {
       return {};
@@ -41,10 +42,13 @@ export class YarnLockParser implements Parser {
       }
 
       const { dependencies = {}, peerDependencies = {} } = tree[key];
-      treeMap[key] = {
-        dependencies: this.getTree(tree, this.filterTargetDependencies(dependencies, mask), deps + 1, params),
-        peerDependencies: this.getTree(tree, this.filterTargetDependencies(peerDependencies, mask), deps + 1, params),
-      };
+      treeMap[key] = nodeFactory(
+        {
+          dependencies: this.getTree(tree, this.filterTargetDependencies(dependencies, mask), deps + 1, params),
+          peerDependencies: this.getTree(tree, this.filterTargetDependencies(peerDependencies, mask), deps + 1, params),
+        },
+        combineDependencies,
+      );
 
       return treeMap;
     }, {});
